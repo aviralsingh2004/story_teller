@@ -308,3 +308,28 @@
     padding: 1rem;
     text-align: center;
   }
+
+  .audio-status {
+    position: fixed;
+    top: 20px;
+    right: 20px;
+    background: rgba(14, 23, 51, 0.9);
+    color: #4a9eff;
+    padding: 10px 20px;
+    border-radius: 4px;
+    font-size: 0.9rem;
+    animation: fade-in 0.3s ease-in-out;
+    z-index: 1000;
+    border: 1px solid #2c4380;
+  }
+
+  @keyframes fade-in {
+    from {
+      opacity: 0;
+      transform: translateY(-10px);
+    }
+    to {
+      opacity: 1;
+      transform: translateY(0);
+    }
+  }

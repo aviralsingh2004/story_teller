@@ -212,12 +212,31 @@ class GameMaster {
     }
   }
 
+  async generateAudioForStory(story, phase) {
+    try {
+      const response = await axios.post('http://localhost:5001/generate-audio', {
+        text: story,
+        phase: phase
+      });
+      return response.data.audioFile;
+    } catch (error) {
+      console.error('Error generating audio:', error);
+      return null;
+    }
+  }
+
   async playTurn() {
     // Get the story and choices first
     const response = await this.generateResponse();
     
-    // Generate images only once here
+    // Generate images
     const images = await this.generateImagesForStory(response.story);
+    
+    // Generate audio
+    const audioFile = await this.generateAudioForStory(
+      response.story, 
+      this.gameState.currentPhase
+    );
     
     const isFinal = this.gameState.currentPhase >= this.gameState.totalPhases;
     
@@ -225,7 +244,8 @@ class GameMaster {
       story: response.story, 
       choices: response.choices, 
       isFinal,
-      images: images ? images.images : null 
+      images: images ? images.images : null,
+      audioFile 
     };
   }
 }
@@ -246,6 +266,7 @@ app.post('/api/game/start', (req, res) => {
     
     // Generate a unique game ID
     const gameId = Date.now().toString();
+    console.log(gameId);
     activeGames.set(gameId, gameMaster);
 
     res.json({
@@ -265,15 +286,14 @@ app.get('/api/game/:gameId/turn', async (req, res) => {
     if (!gameMaster) {
       return res.status(404).json({ error: "Game not found" });
     }
-    console.log("checking");
     
-    const { story, choices, isFinal, images } = await gameMaster.playTurn();
-    res.json({ story, choices, isFinal, images });
+    const { story, choices, isFinal, images, audioFile } = await gameMaster.playTurn();
+    res.json({ story, choices, isFinal, images, audioFile });
   } catch (error) {
     res.status(500).json({ error: error.message });
   }
 });
-const NGROK_URL = "https://ccd3-34-16-223-70.ngrok-free.app/post"; // Replace with your actual ngrok URL
+const NGROK_URL = "https://6a82-34-124-146-217.ngrok-free.app/post"; // Replace with your actual ngrok URL
 
 app.post("/generate-images", async (req, res) => {
   try {
@@ -411,6 +431,40 @@ app.get('/api/check-images', (req, res) => {
 
 // Update the existing static files middleware to use the correct path
 app.use('/extracted_images', express.static(path.join(__dirname, 'extracted_images')));
+
+// Add this new endpoint to check for audio files
+app.get('/api/check-audio/:phase', (req, res) => {
+  const audioDir = path.join(__dirname, 'generated_audio');
+  const phase = req.params.phase;
+  const audioFile = `story_1.mp3`;
+  const audioPath = path.join(audioDir, audioFile);
+
+  try {
+    if (fs.existsSync(audioPath)) {
+      console.log(`Audio file found: ${audioFile}`);
+      res.json({ 
+        success: true,
+        audioFile: audioFile,
+        audioPath: `/audio/${audioFile}`
+      });
+    } else {
+      console.log(`Audio file not found: ${audioFile}`);
+      res.json({ 
+        success: false,
+        message: 'Audio file not yet generated'
+      });
+    }
+  } catch (error) {
+    console.error('Error checking for audio:', error);
+    res.status(500).json({ 
+      error: 'Failed to check audio', 
+      details: error.message 
+    });
+  }
+});
+
+// Make sure this middleware is present to serve audio files
+app.use('/audio', express.static(path.join(__dirname, 'generated_audio')));
 
 const PORT = process.env.PORT || 4000;
 app.listen(PORT, () => {

@@ -13,6 +13,10 @@ const GameStoryPage = () => {
   const [isCheckingImages, setIsCheckingImages] = useState(false);
   const imageCheckInterval = useRef(null);
   const initializeRef = useRef(false);
+  const [audioFile, setAudioFile] = useState(null);
+  const [isCheckingAudio, setIsCheckingAudio] = useState(false);
+  const audioCheckInterval = useRef(null);
+  const audioRef = useRef(null);
   
   // Function to check for images
   const checkForImages = () => {
@@ -53,15 +57,78 @@ const GameStoryPage = () => {
     };
   }, [isCheckingImages]);
 
+  // Function to check for audio and play immediately when found
+  const checkForAudio = () => {
+    if (!isCheckingAudio) return;
+    
+    fetch(`http://localhost:4000/api/check-audio/${gameId}`)
+      .then(response => response.json())
+      .then(data => {
+        if (data.success && data.audioFile) {
+          // Play audio immediately when found
+          if (audioRef.current) {
+            audioRef.current.src = `http://localhost:4000/audio/${data.audioFile}`;
+            audioRef.current.play()
+              .then(() => {
+                console.log('Playing audio:', data.audioFile);
+                // Stop checking once audio starts playing
+                setIsCheckingAudio(false);
+                if (audioCheckInterval.current) {
+                  clearInterval(audioCheckInterval.current);
+                  audioCheckInterval.current = null;
+                }
+              })
+              .catch(error => console.error('Error playing audio:', error));
+          }
+        }
+      })
+      .catch(error => {
+        console.error('Error checking audio:', error);
+      });
+  };
+
+  // Start checking for audio after initial delay
+  useEffect(() => {
+    if (gameId) {
+      // Wait 5 seconds before starting to check for audio
+      const initialDelay = setTimeout(() => {
+        setIsCheckingAudio(true);
+      }, 5000);
+
+      return () => clearTimeout(initialDelay);
+    }
+  }, [gameId]);
+
+  // Audio checking interval
+  useEffect(() => {
+    if (isCheckingAudio && !audioCheckInterval.current) {
+      // Check immediately when starting
+      checkForAudio();
+      // Then check every second
+      audioCheckInterval.current = setInterval(checkForAudio, 1000);
+    }
+    
+    return () => {
+      if (audioCheckInterval.current) {
+        clearInterval(audioCheckInterval.current);
+        audioCheckInterval.current = null;
+      }
+    };
+  }, [isCheckingAudio]);
+
   // Handle choice selection
   const handleChoice = (choiceIndex) => {
-    // First, update the UI immediately with loading states
+    // Stop any currently playing audio
+    if (audioRef.current) {
+      audioRef.current.pause();
+      audioRef.current.currentTime = 0;
+    }
+
     setTextProgress(0);
     setShowImages(false);
     setShowOptions(false);
     setImages({ image1: null, image2: null });
     
-    // Make the choice
     fetch(`http://localhost:4000/api/game/${gameId}/choice`, {
       method: 'POST',
       headers: {
@@ -72,11 +139,13 @@ const GameStoryPage = () => {
     .then(() => fetch(`http://localhost:4000/api/game/${gameId}/turn`))
     .then(response => response.json())
     .then(data => {
-      // Update story and choices immediately
       setCurrentStory(data.story);
       setChoices(data.choices);
-      // Start checking for new images
       setIsCheckingImages(true);
+      // Wait 5 seconds before checking for new audio
+      setTimeout(() => {
+        setIsCheckingAudio(true);
+      }, 5000);
     })
     .catch(error => {
       console.error('Error processing choice:', error);
@@ -136,7 +205,7 @@ const GameStoryPage = () => {
   }, [textProgress, currentStory]);
 
   if (isLoading) {
-    return <div className="story-container">fucking</div>;
+    return <div className="story-container">loading...</div>;
   }
 
   return (
@@ -229,6 +298,27 @@ const GameStoryPage = () => {
           </div>
         )}
       </div>
+      
+      {/* Audio player */}
+      <audio 
+        ref={audioRef} 
+        style={{ display: 'none' }} 
+        onEnded={() => {
+          console.log('Audio playback completed');
+          setIsCheckingAudio(false);
+        }}
+        onError={(e) => {
+          console.error('Audio playback error:', e);
+          setIsCheckingAudio(false);
+        }}
+      />
+      
+      {/* Audio status indicator */}
+      {isCheckingAudio && (
+        <div className="audio-status">
+          Preparing narration...
+        </div>
+      )}
     </div>
   );
 };
