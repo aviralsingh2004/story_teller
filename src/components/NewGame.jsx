@@ -38,6 +38,52 @@ const GameStoryPage = () => {
         console.error('Error checking images:', error);
       });
   };
+
+  // Start checking for images when needed
+  useEffect(() => {
+    if (isCheckingImages && !imageCheckInterval.current) {
+      imageCheckInterval.current = setInterval(checkForImages, 5000); // Check every 5 seconds
+    }
+    
+    return () => {
+      if (imageCheckInterval.current) {
+        clearInterval(imageCheckInterval.current);
+        imageCheckInterval.current = null;
+      }
+    };
+  }, [isCheckingImages]);
+
+  // Handle choice selection
+  const handleChoice = (choiceIndex) => {
+    // First, update the UI immediately with loading states
+    setTextProgress(0);
+    setShowImages(false);
+    setShowOptions(false);
+    setImages({ image1: null, image2: null });
+    
+    // Make the choice
+    fetch(`http://localhost:4000/api/game/${gameId}/choice`, {
+      method: 'POST',
+      headers: {
+        'Content-Type': 'application/json'
+      },
+      body: JSON.stringify({ choice: choiceIndex })
+    })
+    .then(() => fetch(`http://localhost:4000/api/game/${gameId}/turn`))
+    .then(response => response.json())
+    .then(data => {
+      // Update story and choices immediately
+      setCurrentStory(data.story);
+      setChoices(data.choices);
+      // Start checking for new images
+      setIsCheckingImages(true);
+    })
+    .catch(error => {
+      console.error('Error processing choice:', error);
+    });
+  };
+
+  // Initialize game
   useEffect(() => {
     if (initializeRef.current) return;
     initializeRef.current = true;
@@ -49,7 +95,6 @@ const GameStoryPage = () => {
     .then(data => {
       setGameId(data.gameId);
       if (data.gameId) {
-        console.log("game id", data.gameId);
         return fetch(`http://localhost:4000/api/game/${data.gameId}/turn`);
       }
       throw new Error('No gameId received');
@@ -58,7 +103,6 @@ const GameStoryPage = () => {
     .then(turnData => {
       setCurrentStory(turnData.story);
       setChoices(turnData.choices);
-      // Start checking for images
       setIsCheckingImages(true);
       setIsLoading(false);
     })
@@ -68,8 +112,8 @@ const GameStoryPage = () => {
     });
   }, []);
 
+  // Text animation effect
   useEffect(() => {
-    // Text animation effect
     if (textProgress < currentStory.length) {
       const timer = setTimeout(() => {
         setTextProgress(prev => prev + 1);
@@ -90,51 +134,9 @@ const GameStoryPage = () => {
       };
     }
   }, [textProgress, currentStory]);
-  // Start checking for images when needed
-  useEffect(() => {
-    if (isCheckingImages && !imageCheckInterval.current) {
-      imageCheckInterval.current = setInterval(checkForImages, 5000); // Check every 5 seconds
-    }
-    
-    return () => {
-      if (imageCheckInterval.current) {
-        clearInterval(imageCheckInterval.current);
-        imageCheckInterval.current = null;
-      }
-    };
-  }, [isCheckingImages]);
-
-  
-
-  const handleChoice = (choiceIndex) => {
-    fetch(`http://localhost:4000/api/game/${gameId}/choice`, {
-      method: 'POST',
-      headers: {
-        'Content-Type': 'application/json'
-      },
-      body: JSON.stringify({ choice: choiceIndex })
-    })
-    .then(response => {
-      return fetch(`http://localhost:4000/api/game/${gameId}/turn`);
-    })
-    .then(response => response.json())
-    .then(data => {
-      setTextProgress(0);
-      setShowImages(false);
-      setShowOptions(false);
-      setCurrentStory(data.story);
-      setChoices(data.choices);
-      // Reset images and start checking again
-      setImages({ image1: null, image2: null });
-      setIsCheckingImages(true);
-    })
-    .catch(error => {
-      console.error('Error processing choice:', error);
-    });
-  };
 
   if (isLoading) {
-    return <div className="story-container">Loading...</div>;
+    return <div className="story-container">fucking</div>;
   }
 
   return (
