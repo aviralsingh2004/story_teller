@@ -1,0 +1,192 @@
+/* GamingLandingPage.css */
+
+/* Container and background */
+.landing-container {
+    position: relative;
+    height: 100vh;
+    width: 100%;
+    overflow: hidden;
+    background-color: black;
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    justify-content: center;
+  }
+  
+  .animated-background {
+    position: absolute;
+    inset: 0;
+    background: linear-gradient(to bottom right, #4a1d96, #172554, #000000);
+    opacity: 0.7;
+    animation: pulse 8s infinite;
+  }
+  
+  @keyframes pulse {
+    0% { opacity: 0.6; }
+    50% { opacity: 0.8; }
+    100% { opacity: 0.6; }
+  }
+  
+  /* Particles */
+  .particle {
+    position: absolute;
+    border-radius: 50%;
+    background-color: #60a5fa;
+  }
+  
+  /* Logo */
+  .logo-container {
+    margin-bottom: 4rem;
+    transition: all 1s ease;
+  }
+  
+  .logo-container.logo-animated {
+    transform: scale(1);
+    opacity: 1;
+  }
+  
+  .logo-container:not(.logo-animated) {
+    transform: scale(0.5);
+    opacity: 0;
+  }
+  
+  .logo-triangles {
+    position: relative;
+  }
+  
+  .triangle-outer {
+    color: #3b82f6;
+    animation: pulse 4s infinite;
+  }
+  
+  .triangle-middle-container,
+  .triangle-inner-container {
+    position: absolute;
+    inset: 0;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+  }
+  
+  .triangle-middle {
+    color: #818cf8;
+    animation: spin 8s linear infinite;
+  }
+  
+  .triangle-inner {
+    color: #67e8f9;
+    animation: ping 2s cubic-bezier(0, 0, 0.2, 1) infinite;
+  }
+  
+  @keyframes spin {
+    100% { transform: rotate(360deg); }
+  }
+  
+  @keyframes ping {
+    75%, 100% {
+      transform: scale(1.2);
+      opacity: 0;
+    }
+  }
+  
+  .game-title {
+    font-size: 3rem;
+    font-weight: 800;
+    background: linear-gradient(to right, #60a5fa, #a78bfa);
+    -webkit-background-clip: text;
+    background-clip: text;
+    color: transparent;
+    margin-top: 1rem;
+    text-align: center;
+  }
+  
+  @media (min-width: 768px) {
+    .game-title {
+      font-size: 3.75rem;
+    }
+  }
+  
+  /* Start Game Button */
+  .start-button {
+    position: relative;
+    padding: 1rem 2rem;
+    background-color: transparent;
+    overflow: hidden;
+    border-radius: 0.5rem;
+    transition: all 0.3s ease;
+    border: none;
+    cursor: pointer;
+  }
+  
+  .button-glow {
+    position: absolute;
+    inset: 0;
+    background: linear-gradient(to right, #06b6d4, #2563eb);
+    opacity: 0.7;
+    transition: opacity 0.3s ease;
+  }
+  
+  .start-button:hover .button-glow {
+    opacity: 1;
+  }
+  
+  .button-bg {
+    position: absolute;
+    inset: 2px;
+    background-color: black;
+    border-radius: 0.375rem;
+    z-index: 10;
+  }
+  
+  .button-text {
+    position: relative;
+    z-index: 20;
+    font-size: 1.5rem;
+    font-weight: 700;
+    color: white;
+    transition: color 0.3s ease;
+  }
+  
+  .start-button:hover .button-text {
+    color: #bae6fd;
+  }
+  
+  .button-border-glow {
+    position: absolute;
+    inset: 0;
+    z-index: -10;
+    background: linear-gradient(to right, #6366f1, #a855f7, #ec4899);
+    filter: blur(16px);
+    opacity: 0.7;
+    animation: pulse 2s infinite;
+    transition: opacity 0.3s ease;
+  }
+  
+  .start-button:hover .button-border-glow {
+    opacity: 1;
+  }
+  
+  /* Corner Lights */
+  .corner-light {
+    position: absolute;
+    border-radius: 50%;
+    mix-blend-mode: screen;
+    filter: blur(24px);
+    opacity: 0.2;
+  }
+  
+  .corner-light.top-left {
+    top: 0;
+    left: 0;
+    width: 16rem;
+    height: 16rem;
+    background-color: #9333ea;
+  }
+  
+  .corner-light.bottom-right {
+    bottom: 0;
+    right: 0;
+    width: 20rem;
+    height: 20rem;
+    background-color: #2563eb;
+  }
