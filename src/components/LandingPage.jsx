@@ -1,10 +1,11 @@
 import React, { useEffect, useState } from 'react';
 import { Triangle } from 'lucide-react';
 import './CSS/LandingPage.css';
-
+import { useNavigate } from 'react-router-dom';
 // Custom hook for particle animation
 const useParticleAnimation = () => {
   const [particles, setParticles] = useState([]);
+  
   
   useEffect(() => {
     // Create initial particles
@@ -30,6 +31,7 @@ const useParticleAnimation = () => {
       );
     }, 16);
     
+    
     return () => clearInterval(interval);
   }, []);
   
@@ -39,7 +41,10 @@ const useParticleAnimation = () => {
 const GamingLandingPage = () => {
   const particles = useParticleAnimation();
   const [isLogoAnimated, setIsLogoAnimated] = useState(false);
-  
+  const navigate = useNavigate();
+  const HandleClick=()=>{
+    navigate('/newgame')
+  }
   useEffect(() => {
     // Trigger logo animation after a short delay
     const timer = setTimeout(() => setIsLogoAnimated(true), 500);
@@ -82,7 +87,7 @@ const GamingLandingPage = () => {
       </div>
       
       {/* Start Game Button */}
-      <button className="start-button">
+      <button className="start-button" onClick={()=>{HandleClick()}}>
         <div className="button-glow"></div>
         <div className="button-bg"></div>
         <span className="button-text">START GAME</span>
