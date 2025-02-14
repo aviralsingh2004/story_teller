@@ -1,28 +1,85 @@
-import React, { useState, useEffect } from 'react';
+import React, { useState, useEffect, useRef } from 'react';
 import './CSS/NewGame.css';
 
 const GameStoryPage = () => {
   const [textProgress, setTextProgress] = useState(0);
   const [showImages, setShowImages] = useState(false);
   const [showOptions, setShowOptions] = useState(false);
+  const [gameId, setGameId] = useState(null);
+  const [currentStory, setCurrentStory] = useState("");
+  const [choices, setChoices] = useState([]);
+  const [isLoading, setIsLoading] = useState(true);
+  const [images, setImages] = useState({ image1: null, image2: null });
+  const [isCheckingImages, setIsCheckingImages] = useState(false);
+  const imageCheckInterval = useRef(null);
+  const initializeRef = useRef(false);
   
-  // The story text to be displayed
-  const storyText = "In the year 2157, the digital realm merged with reality. As a rogue AI hunter, you've tracked a dangerous entity to the edge of the Nexus. Two paths lie before you - the neon-lit streets of the Underground or the sterile corridors of the Corporate Sector. Your decision will shape the fate of the entire network...";
-  
+  // Function to check for images
+  const checkForImages = () => {
+    if (!isCheckingImages) return;
+    
+    fetch(`http://localhost:4000/api/check-images`)
+      .then(response => response.json())
+      .then(data => {
+        if (data.images && data.images.length >= 2) {
+          setImages({
+            image1: data.images[0],
+            image2: data.images[1]
+          });
+          // Stop checking once images are found
+          setIsCheckingImages(false);
+          if (imageCheckInterval.current) {
+            clearInterval(imageCheckInterval.current);
+            imageCheckInterval.current = null;
+          }
+        }
+      })
+      .catch(error => {
+        console.error('Error checking images:', error);
+      });
+  };
   useEffect(() => {
-    // Animate the text typing effect
-    if (textProgress < storyText.length) {
+    if (initializeRef.current) return;
+    initializeRef.current = true;
+
+    fetch('http://localhost:4000/api/game/start', {
+      method: 'POST'
+    })
+    .then(response => response.json())
+    .then(data => {
+      setGameId(data.gameId);
+      if (data.gameId) {
+        console.log("game id", data.gameId);
+        return fetch(`http://localhost:4000/api/game/${data.gameId}/turn`);
+      }
+      throw new Error('No gameId received');
+    })
+    .then(response => response.json())
+    .then(turnData => {
+      setCurrentStory(turnData.story);
+      setChoices(turnData.choices);
+      // Start checking for images
+      setIsCheckingImages(true);
+      setIsLoading(false);
+    })
+    .catch(error => {
+      console.error('Error starting game:', error);
+      setIsLoading(false);
+    });
+  }, []);
+
+  useEffect(() => {
+    // Text animation effect
+    if (textProgress < currentStory.length) {
       const timer = setTimeout(() => {
         setTextProgress(prev => prev + 1);
-      }, 50);
+      }, 10);
       return () => clearTimeout(timer);
     } else {
-      // Show images after text is complete
       const imageTimer = setTimeout(() => {
         setShowImages(true);
       }, 1000);
       
-      // Show options after images
       const optionTimer = setTimeout(() => {
         setShowOptions(true);
       }, 2500);
@@ -32,8 +89,54 @@ const GameStoryPage = () => {
         clearTimeout(optionTimer);
       };
     }
-  }, [textProgress, storyText.length]);
+  }, [textProgress, currentStory]);
+  // Start checking for images when needed
+  useEffect(() => {
+    if (isCheckingImages && !imageCheckInterval.current) {
+      imageCheckInterval.current = setInterval(checkForImages, 5000); // Check every 5 seconds
+    }
+    
+    return () => {
+      if (imageCheckInterval.current) {
+        clearInterval(imageCheckInterval.current);
+        imageCheckInterval.current = null;
+      }
+    };
+  }, [isCheckingImages]);
+
   
+
+  const handleChoice = (choiceIndex) => {
+    fetch(`http://localhost:4000/api/game/${gameId}/choice`, {
+      method: 'POST',
+      headers: {
+        'Content-Type': 'application/json'
+      },
+      body: JSON.stringify({ choice: choiceIndex })
+    })
+    .then(response => {
+      return fetch(`http://localhost:4000/api/game/${gameId}/turn`);
+    })
+    .then(response => response.json())
+    .then(data => {
+      setTextProgress(0);
+      setShowImages(false);
+      setShowOptions(false);
+      setCurrentStory(data.story);
+      setChoices(data.choices);
+      // Reset images and start checking again
+      setImages({ image1: null, image2: null });
+      setIsCheckingImages(true);
+    })
+    .catch(error => {
+      console.error('Error processing choice:', error);
+    });
+  };
+
+  if (isLoading) {
+    return <div className="story-container">Loading...</div>;
+  }
+
   return (
     <div className="story-container">
       {/* Animated background with particles */}
@@ -58,7 +161,7 @@ const GameStoryPage = () => {
       <div className="story-content">
         <div className="story-text-container">
           <p className="story-text">
-            {storyText.substring(0, textProgress)}
+            {currentStory.substring(0, textProgress)}
             <span className="cursor"></span>
           </p>
         </div>
@@ -66,17 +169,43 @@ const GameStoryPage = () => {
         {/* Images container */}
         <div className={`story-images ${showImages ? 'visible' : ''}`}>
           <div className="image-container left">
-            <div className="image-placeholder underground">
-              <div className="image-overlay">
-                <h3>The Underground</h3>
-              </div>
+            <div className={`image-placeholder ${images.image1 ? '' : 'no-image'}`}>
+              {images.image1 ? (
+                <img 
+                  src={`http://localhost:4000/extracted_images/${images.image1}`} 
+                  alt="Scene 1" 
+                  className="generated-image"
+                  onError={(e) => {
+                    e.target.onerror = null;
+                    e.target.parentElement.classList.add('no-image');
+                  }}
+                />
+              ) : (
+                <div className="image-overlay">
+                  <h3>Generating Scene...</h3>
+                  <div className="loading-spinner"></div>
+                </div>
+              )}
             </div>
           </div>
           <div className="image-container right">
-            <div className="image-placeholder corporate">
-              <div className="image-overlay">
-                <h3>Corporate Sector</h3>
-              </div>
+            <div className={`image-placeholder ${images.image2 ? '' : 'no-image'}`}>
+              {images.image2 ? (
+                <img 
+                  src={`http://localhost:4000/extracted_images/${images.image2}`} 
+                  alt="Scene 2" 
+                  className="generated-image"
+                  onError={(e) => {
+                    e.target.onerror = null;
+                    e.target.parentElement.classList.add('no-image');
+                  }}
+                />
+              ) : (
+                <div className="image-overlay">
+                  <h3>Generating Scene...</h3>
+                  <div className="loading-spinner"></div>
+                </div>
+              )}
             </div>
           </div>
         </div>
@@ -84,18 +213,17 @@ const GameStoryPage = () => {
         {/* Options container */}
         {showOptions && (
           <div className="story-options">
-            <button className="option-button" style={{animationDelay: '0.2s'}}>
-              <span className="button-glow"></span>
-              <span className="button-content">Enter the Underground</span>
-            </button>
-            <button className="option-button" style={{animationDelay: '0.4s'}}>
-              <span className="button-glow"></span>
-              <span className="button-content">Infiltrate Corporate Sector</span>
-            </button>
-            <button className="option-button" style={{animationDelay: '0.6s'}}>
-              <span className="button-glow"></span>
-              <span className="button-content">Seek Another Path</span>
-            </button>
+            {choices.map((choice, index) => (
+              <button 
+                key={index}
+                className="option-button" 
+                style={{animationDelay: `${0.2 * (index + 1)}s`}}
+                onClick={() => handleChoice(index)}
+              >
+                <span className="button-glow"></span>
+                <span className="button-content">{choice}</span>
+              </button>
+            ))}
           </div>
         )}
       </div>
