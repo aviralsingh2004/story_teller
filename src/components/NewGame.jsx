@@ -17,8 +17,8 @@ const GameStoryPage = () => {
   const [isCheckingAudio, setIsCheckingAudio] = useState(false);
   const audioCheckInterval = useRef(null);
   const audioRef = useRef(null);
+  const [manualChoice, setManualChoice] = useState("");
   
-  // Function to check for images
   const checkForImages = () => {
     if (!isCheckingImages) return;
     
@@ -30,7 +30,6 @@ const GameStoryPage = () => {
             image1: data.images[0],
             image2: data.images[1]
           });
-          // Stop checking once images are found
           setIsCheckingImages(false);
           if (imageCheckInterval.current) {
             clearInterval(imageCheckInterval.current);
@@ -43,10 +42,9 @@ const GameStoryPage = () => {
       });
   };
 
-  // Start checking for images when needed
   useEffect(() => {
     if (isCheckingImages && !imageCheckInterval.current) {
-      imageCheckInterval.current = setInterval(checkForImages, 5000); // Check every 5 seconds
+      imageCheckInterval.current = setInterval(checkForImages, 5000);
     }
     
     return () => {
@@ -57,7 +55,6 @@ const GameStoryPage = () => {
     };
   }, [isCheckingImages]);
 
-  // Function to check for audio and play immediately when found
   const checkForAudio = () => {
     if (!isCheckingAudio) return;
     
@@ -65,13 +62,10 @@ const GameStoryPage = () => {
       .then(response => response.json())
       .then(data => {
         if (data.success && data.audioFile) {
-          // Play audio immediately when found
           if (audioRef.current) {
             audioRef.current.src = `http://localhost:4000/audio/${data.audioFile}`;
             audioRef.current.play()
               .then(() => {
-                console.log('Playing audio:', data.audioFile);
-                // Stop checking once audio starts playing
                 setIsCheckingAudio(false);
                 if (audioCheckInterval.current) {
                   clearInterval(audioCheckInterval.current);
@@ -87,24 +81,18 @@ const GameStoryPage = () => {
       });
   };
 
-  // Start checking for audio after initial delay
   useEffect(() => {
     if (gameId) {
-      // Wait 5 seconds before starting to check for audio
       const initialDelay = setTimeout(() => {
         setIsCheckingAudio(true);
       }, 5000);
-
       return () => clearTimeout(initialDelay);
     }
   }, [gameId]);
 
-  // Audio checking interval
   useEffect(() => {
     if (isCheckingAudio && !audioCheckInterval.current) {
-      // Check immediately when starting
       checkForAudio();
-      // Then check every second
       audioCheckInterval.current = setInterval(checkForAudio, 1000);
     }
     
@@ -116,9 +104,7 @@ const GameStoryPage = () => {
     };
   }, [isCheckingAudio]);
 
-  // Handle choice selection
   const handleChoice = (choiceIndex) => {
-    // Stop any currently playing audio
     if (audioRef.current) {
       audioRef.current.pause();
       audioRef.current.currentTime = 0;
@@ -142,7 +128,6 @@ const GameStoryPage = () => {
       setCurrentStory(data.story);
       setChoices(data.choices);
       setIsCheckingImages(true);
-      // Wait 5 seconds before checking for new audio
       setTimeout(() => {
         setIsCheckingAudio(true);
       }, 5000);
@@ -152,7 +137,43 @@ const GameStoryPage = () => {
     });
   };
 
-  // Initialize game
+  const handleManualChoice = (e) => {
+    e.preventDefault();
+    if (!manualChoice.trim()) return;
+    
+    if (audioRef.current) {
+      audioRef.current.pause();
+      audioRef.current.currentTime = 0;
+    }
+
+    setTextProgress(0);
+    setShowImages(false);
+    setShowOptions(false);
+    setImages({ image1: null, image2: null });
+    
+    fetch(`http://localhost:4000/api/game/${gameId}/manual-choice`, {
+      method: 'POST',
+      headers: {
+        'Content-Type': 'application/json'
+      },
+      body: JSON.stringify({ choice: manualChoice })
+    })
+    .then(() => fetch(`http://localhost:4000/api/game/${gameId}/turn`))
+    .then(response => response.json())
+    .then(data => {
+      setCurrentStory(data.story);
+      setChoices(data.choices);
+      setManualChoice("");
+      setIsCheckingImages(true);
+      setTimeout(() => {
+        setIsCheckingAudio(true);
+      }, 5000);
+    })
+    .catch(error => {
+      console.error('Error processing manual choice:', error);
+    });
+  };
+
   useEffect(() => {
     if (initializeRef.current) return;
     initializeRef.current = true;
@@ -181,7 +202,6 @@ const GameStoryPage = () => {
     });
   }, []);
 
-  // Text animation effect
   useEffect(() => {
     if (textProgress < currentStory.length) {
       const timer = setTimeout(() => {
@@ -205,118 +225,126 @@ const GameStoryPage = () => {
   }, [textProgress, currentStory]);
 
   if (isLoading) {
-    return <div className="story-container">loading...</div>;
+    return <div className="story-container">Loading Universe...</div>;
   }
 
   return (
     <div className="story-container">
-      {/* Animated background with particles */}
-      <div className="story-bg"></div>
-      <div className="particles-container">
-        {Array.from({ length: 50 }).map((_, i) => (
-          <div 
-            key={i}
-            className="story-particle"
-            style={{
-              left: `${Math.random() * 100}%`,
-              top: `${Math.random() * 100}%`,
-              animationDelay: `${Math.random() * 5}s`,
-              width: `${Math.random() * 4 + 1}px`,
-              height: `${Math.random() * 4 + 1}px`
-            }}
-          />
-        ))}
+      <div className="background-effects">
+        <div className="star-field"></div>
+        <div className="nebula-effect"></div>
+        <div className="floating-lights"></div>
+        <div className="floating-orbs"></div>
+        <div className="cosmic-dust"></div>
+        <div className="meteors"></div>
+        <div className="comets-container">
+          {[...Array(8)].map((_, index) => (
+            <div key={index} className={`comet comet-${index + 1}`}></div>
+          ))}
+        </div>
       </div>
       
-      {/* Story text container */}
-      <div className="story-content">
-        <div className="story-text-container">
-          <p className="story-text">
-            {currentStory.substring(0, textProgress)}
-            <span className="cursor"></span>
-          </p>
-        </div>
-        
-        {/* Images container */}
-        <div className={`story-images ${showImages ? 'visible' : ''}`}>
-          <div className="image-container left">
-            <div className={`image-placeholder ${images.image1 ? '' : 'no-image'}`}>
-              {images.image1 ? (
-                <img 
-                  src={`http://localhost:4000/extracted_images/${images.image1}`} 
-                  alt="Scene 1" 
-                  className="generated-image"
-                  onError={(e) => {
-                    e.target.onerror = null;
-                    e.target.parentElement.classList.add('no-image');
-                  }}
-                />
-              ) : (
-                <div className="image-overlay">
-                  <h3>Generating Scene...</h3>
-                  <div className="loading-spinner"></div>
-                </div>
-              )}
-            </div>
-          </div>
-          <div className="image-container right">
-            <div className={`image-placeholder ${images.image2 ? '' : 'no-image'}`}>
-              {images.image2 ? (
-                <img 
-                  src={`http://localhost:4000/extracted_images/${images.image2}`} 
-                  alt="Scene 2" 
-                  className="generated-image"
-                  onError={(e) => {
-                    e.target.onerror = null;
-                    e.target.parentElement.classList.add('no-image');
-                  }}
-                />
-              ) : (
-                <div className="image-overlay">
-                  <h3>Generating Scene...</h3>
-                  <div className="loading-spinner"></div>
-                </div>
-              )}
+      <div className="content-wrapper">
+        <div className="panel text-section">
+          <div className="story-text-container">
+            <div className="text-scroll-wrapper">
+              <p className="story-text">
+                {currentStory.substring(0, textProgress)}
+                <span className="cursor"></span>
+              </p>
             </div>
           </div>
         </div>
-        
-        {/* Options container */}
-        {showOptions && (
-          <div className="story-options">
-            {choices.map((choice, index) => (
-              <button 
-                key={index}
-                className="option-button" 
-                style={{animationDelay: `${0.2 * (index + 1)}s`}}
-                onClick={() => handleChoice(index)}
-              >
+
+        <div className="panel images-section">
+          <div className={`story-images ${showImages ? 'visible' : ''}`}>
+            <div className="image-container">
+              <div className={`image-placeholder ${images.image1 ? '' : 'no-image'}`}>
+                {images.image1 ? (
+                  <img 
+                    src={`http://localhost:4000/extracted_images/${images.image1}`} 
+                    alt="Scene" 
+                    className="generated-image"
+                    onError={(e) => e.target.parentElement.classList.add('no-image')}
+                  />
+                ) : (
+                  <div className="image-overlay">
+                    <h3>Constructing Reality...</h3>
+                    <div className="loading-spinner"></div>
+                  </div>
+                )}
+              </div>
+              <div className="image-frame"></div>
+            </div>
+            <div className="image-container">
+              <div className={`image-placeholder ${images.image2 ? '' : 'no-image'}`}>
+                {images.image2 ? (
+                  <img 
+                    src={`http://localhost:4000/extracted_images/${images.image2}`} 
+                    alt="Scene" 
+                    className="generated-image"
+                    onError={(e) => e.target.parentElement.classList.add('no-image')}
+                  />
+                ) : (
+                  <div className="image-overlay">
+                    <h3>Rendering Dimensions...</h3>
+                    <div className="loading-spinner"></div>
+                  </div>
+                )}
+              </div>
+              <div className="image-frame"></div>
+            </div>
+          </div>
+        </div>
+      </div>
+      
+      <div className={`options-wrapper ${showOptions ? 'show' : ''}`}>
+        <div className="story-options">
+          {choices.map((choice, index) => (
+            <button 
+              key={index}
+              className="option-button" 
+              style={{animationDelay: `${0.2 * (index + 1)}s`}}
+              onClick={() => handleChoice(index)}
+            >
+              <span className="button-glow"></span>
+              <span className="button-content">
+                <span className="choice-number">{index + 1}</span>
+                {choice}
+              </span>
+            </button>
+          ))}
+          
+          <div className="custom-choice-container">
+            <form onSubmit={handleManualChoice} className="manual-choice-form">
+              <div className="option-button custom-option">
                 <span className="button-glow"></span>
-                <span className="button-content">{choice}</span>
-              </button>
-            ))}
+                <span className="choice-number">4</span>
+                <input
+                  type="text"
+                  value={manualChoice}
+                  onChange={(e) => setManualChoice(e.target.value)}
+                  placeholder="Type your own action..."
+                  className="manual-input"
+                />
+              </div>
+              <button type="submit" className="submit-button">Go</button>
+            </form>
           </div>
-        )}
+        </div>
       </div>
       
-      {/* Audio player */}
       <audio 
         ref={audioRef} 
-        style={{ display: 'none' }} 
-        onEnded={() => {
-          console.log('Audio playback completed');
-          setIsCheckingAudio(false);
-        }}
-        onError={(e) => {
-          console.error('Audio playback error:', e);
-          setIsCheckingAudio(false);
-        }}
+        className="audio-element"
+        onEnded={() => setIsCheckingAudio(false)}
+        onError={() => setIsCheckingAudio(false)}
       />
       
-      {/* Audio status indicator */}
       {isCheckingAudio && (
         <div className="audio-status">
-          Preparing narration...
+          <div className="audio-spinner"></div>
+          Synthesizing Audio...
         </div>
       )}
     </div>
