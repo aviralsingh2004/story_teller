@@ -24,7 +24,11 @@ class GameState {
     this.storySummary = "";
     this.choicesHistory = [];
     this.fullStoryHistory = [];
-    this.totalPhases = 5; // Reduce for testing
+    this.totalPhases = 5;
+    this.mainTheme = '';
+    this.keyCharacters = new Set();
+    this.plotPoints = [];
+    this.storyContext = ''; // New field to maintain cumulative context
   }
 }
 
@@ -37,7 +41,7 @@ class SceneStructure {
 
 class GameMaster {
   constructor(apiKey) {
-    this.groq = new Groq({ apiKey }); // Initialize Groq SDK client
+    this.groq = new Groq({ apiKey });
     this.gameState = null;
     this.genres = [
       "fantasy",
@@ -48,6 +52,7 @@ class GameMaster {
       "cyberpunk",
       "post-apocalyptic",
     ];
+    this.maxPhases = 5;
   }
 
   generateGenre() {
@@ -59,46 +64,88 @@ class GameMaster {
     this.gameState = new GameState(genre);
   }
 
+
   createStoryPrompt() {
-    if (!this.gameState.storySummary) {
+    if (this.gameState.currentPhase === 1) {
       return `
       You are a game master for a ${this.gameState.genre} story-based game.
-      Create an engaging opening scene and provide three distinct choices for the player.
+      Create an engaging opening scene that introduces:
+      1. A clear main conflict or goal
+      2. The primary character(s)
+      3. The setting
+      
+      This is phase 1 of ${this.maxPhases}. Plan the story arc accordingly.
+      
       Format:
       [Story]: Write the story here
       [Choices]:
-      1. First choice
-      2. Second choice
-      3. Third choice
+      1. First choice (relate to the main conflict)
+      2. Second choice (provide an alternative approach)
+      3. Third choice (allow for unexpected development)
       `;
     } else {
+      // Build comprehensive story context
       const storyContext = this.gameState.fullStoryHistory
-        .map(
-          (event, idx) =>
-            `Phase ${idx + 1}:\nStory: ${event.story}\nPlayer chose: ${event.choice}`
-        )
-        .join("\n");
+        .map((event, idx) => {
+          return `Phase ${idx + 1}:
+Story: ${event.story}
+Player's Choice: ${event.choice}
+Key Events: ${this.gameState.plotPoints[idx] || 'Continuing story development...'}
+Active Characters: ${Array.from(this.getCharactersInPhase(event.story))}
+`;
+        })
+        .join('\n\n');
 
+      // Update cumulative context
+      this.gameState.storyContext = storyContext;
+
+      const isFinalPhase = this.gameState.currentPhase >= this.maxPhases;
+      
       return `
       You are a game master for a ${this.gameState.genre} story-based game.
+      
+      Complete Story Overview:
+      Main Theme: ${this.gameState.mainTheme}
+      Current Phase: ${this.gameState.currentPhase} of ${this.maxPhases}
+      Key Characters: ${Array.from(this.gameState.keyCharacters).join(', ')}
+      
+      Previous Story Development:
+      ${this.gameState.storyContext}
 
-      Complete story so far:
-      ${storyContext}
-
-      Last player choice: ${this.gameState.choicesHistory.slice(-1)[0]}
-      Current phase: ${this.gameState.currentPhase}
-
-      Continue the story based on all previous events and the player's choices.
-      Ensure strong continuity with previous events and maintain consistent character development.
+      Last Player Choice: ${this.gameState.choicesHistory[this.gameState.choicesHistory.length - 1]}
+      Major Plot Points: ${this.gameState.plotPoints.join('; ')}
+      
+      ${isFinalPhase ? `
+      This is the FINAL PHASE. Create a meaningful conclusion that:
+      1. Resolves the main conflict: ${this.gameState.mainTheme}
+      2. Addresses these previous choices: ${this.gameState.choicesHistory.join(', ')}
+      3. Provides closure for characters: ${Array.from(this.gameState.keyCharacters).join(', ')}
+      ` : `
+      Continue the story by:
+      1. Building on these events: ${this.gameState.plotPoints.slice(-2).join('; ')}
+      2. Developing character relationships: ${Array.from(this.gameState.keyCharacters).join(', ')}
+      3. Advancing toward the resolution of: ${this.gameState.mainTheme}
+      `}
 
       Format:
       [Story]: Write the story here
       [Choices]:
-      1. First choice
-      2. Second choice
-      3. Third choice
+      ${isFinalPhase ? 
+        `1. Choose a noble ending\n2. Choose a pragmatic ending\n3. Choose a dramatic ending` :
+        `1. First choice (connected to current events)\n2. Second choice (alternative path)\n3. Third choice (unexpected development)`}
       `;
     }
+  }
+
+  getCharactersInPhase(story) {
+    const characters = new Set();
+    const possibleNames = story.match(/[A-Z][a-z]+(?:\s[A-Z][a-z]+)*/g) || [];
+    possibleNames.forEach(name => {
+      if (name.length > 1) { // Avoid single letters
+        characters.add(name);
+      }
+    });
+    return characters;
   }
 
   async generateResponse() {
@@ -108,8 +155,37 @@ class GameMaster {
       messages: [
         {
           role: "system",
-          content:
-            "You are a creative game master focused on maintaining story continuity and coherent narrative development. Always format your response with [Story]: followed by the story and [Choices]: followed by numbered choices.",
+          content: `You are a creative game master maintaining perfect story continuity.
+            Track and reference:
+            - All character actions and relationships
+            - Every plot development and consequence
+            - Story themes and atmosphere
+            - Previous player choices and their impacts
+            - Break the story into clear, distinct paragraphs
+            - Each paragraph should be separated by a blank line
+            - Each paragraph should focus on a single scene, event, or moment
+            - Do not write the story as one continuous block of text
+            - Keep paragraphs to 3-4 sentences for readability
+            
+            IMPORTANT FORMAT INSTRUCTIONS:
+            1. Break your story into clear, distinct paragraphs
+            2. Each paragraph should be separated by a blank line
+            3. Each paragraph should focus on a single scene, event, or moment
+            4. Do not write the story as one continuous block of text
+            5. Keep paragraphs to 3-4 sentences for readability
+            
+            Your response must follow this exact format:
+            [Story]: 
+            (First paragraph)
+
+            (Second paragraph)
+
+            (Third paragraph)
+
+            [Choices]: 
+            1. (First choice)
+            2. (Second choice)
+            3. (Third choice)`,
         },
         { role: "user", content: prompt },
       ],
@@ -118,24 +194,21 @@ class GameMaster {
       max_tokens: 1000,
     });
 
+    // Rest of the method remains exactly the same
     const responseText = completion.choices[0].message.content;
     
     let storySection = "";
     let choices = [];
     
     try {
-      // Try to parse with markers first
       if (responseText.includes("[Story]:") && responseText.includes("[Choices]:")) {
         storySection = responseText.split("[Choices]:")[0].replace("[Story]:", "").trim();
         const choicesSection = responseText.split("[Choices]:")[1];
-        if (choicesSection) {
-          choices = choicesSection
-            .split("\n")
-            .map(choice => choice.replace(/^\d+\.\s*/, "").trim())
-            .filter(choice => choice.length > 0);
-        }
+        choices = choicesSection
+          .split("\n")
+          .map(choice => choice.replace(/^\d+\.\s*/, "").trim())
+          .filter(choice => choice.length > 0);
       } else {
-        // Fallback: Try to split on numbered choices
         const parts = responseText.split(/\d+\./);
         storySection = parts[0].trim();
         choices = parts
@@ -144,20 +217,31 @@ class GameMaster {
           .filter(choice => choice.length > 0);
       }
 
-      // Ensure we have valid story and choices
+      if (this.gameState.currentPhase === 1) {
+        this.gameState.mainTheme = this.extractMainTheme(storySection);
+      }
+      
+      this.updateStoryElements(storySection);
+
       if (!storySection || choices.length === 0) {
         throw new Error("Invalid response format");
       }
 
-      // Ensure we have exactly 3 choices
       while (choices.length < 3) {
         choices.push("Continue with caution");
       }
       choices = choices.slice(0, 3);
 
+      this.gameState.fullStoryHistory.push({
+        phase: this.gameState.currentPhase,
+        story: storySection,
+        choices: choices
+      });
+
       return { 
         story: storySection, 
-        choices
+        choices,
+        isEnding: this.gameState.currentPhase >= this.maxPhases
       };
     } catch (error) {
       console.error("Error parsing AI response:", error);
@@ -167,25 +251,85 @@ class GameMaster {
           "Proceed carefully",
           "Investigate further",
           "Take a different approach"
-        ]
+        ],
+        isEnding: this.gameState.currentPhase >= this.maxPhases
       };
     }
   }
 
-  updateSummary(story, choice) {
-    this.gameState.fullStoryHistory.push({
-      story,
-      choice,
-      phase: this.gameState.currentPhase,
-    });
 
-    this.gameState.storySummary += `\nPhase ${this.gameState.currentPhase}: ${story.substring(
-      0,
-      200
-    )}... Player chose: ${choice}`;
-    this.gameState.choicesHistory.push(choice);
-    this.gameState.currentPhase += 1;
+  extractMainTheme(story) {
+    const sentences = story.split('.');
+    const mainTheme = sentences.slice(0, 2).join('.').trim();
+    return mainTheme;
   }
+  updateStoryElements(story) {
+    // Extract and update characters
+    const newCharacters = this.getCharactersInPhase(story);
+    newCharacters.forEach(char => this.gameState.keyCharacters.add(char));
+
+    // Extract plot points
+    const sentences = story.split('.');
+    const significantEvents = sentences
+      .filter(sentence => 
+        sentence.length > 30 && 
+        (sentence.includes('but') || 
+         sentence.includes('however') || 
+         sentence.includes('suddenly') ||
+         sentence.includes('decided') ||
+         sentence.includes('realized'))
+      )
+      .map(sentence => sentence.trim());
+
+    if (significantEvents.length > 0) {
+      this.gameState.plotPoints.push(significantEvents[0]);
+    } else {
+      this.gameState.plotPoints.push(sentences[0].trim());
+    }
+  }
+
+  updateSummary(story, choice) {
+    // Add to story history
+    if (!this.gameState.fullStoryHistory.find(h => h.story === story)) {
+      this.gameState.fullStoryHistory.push({
+        story,
+        choice,
+        phase: this.gameState.currentPhase
+      });
+    }
+
+    // Update summary with phase information
+    this.gameState.storySummary += `\nPhase ${this.gameState.currentPhase}: ${story.substring(0, 200)}... Player chose: ${choice}`;
+    
+    // Update choices history
+    this.gameState.choicesHistory.push(choice);
+    
+    // Increment phase
+    this.gameState.currentPhase += 1;
+
+    // Update context
+    this.gameState.storyContext = this.gameState.fullStoryHistory
+      .map((event, idx) => `Phase ${idx + 1}:\nStory: ${event.story}\nChoice: ${event.choice}`)
+      .join('\n\n');
+  }
+
+  async playTurn() {
+    const response = await this.generateResponse();
+    const images = await this.generateImagesForStory(response.story);
+    const audioFile = await this.generateAudioForStory(
+      response.story, 
+      this.gameState.currentPhase
+    );
+    
+    return { 
+      story: response.story, 
+      choices: response.choices, 
+      isFinal: this.gameState.currentPhase >= this.gameState.totalPhases,
+      images: images ? images.images : null,
+      audioFile 
+    };
+  }
+
 
   async generateImagesForStory(story) {
     try {
@@ -266,7 +410,7 @@ app.post('/api/game/start', (req, res) => {
     
     // Generate a unique game ID
     const gameId = Date.now().toString();
-    console.log(gameId);
+    // console.log(gameId);
     activeGames.set(gameId, gameMaster);
 
     res.json({
@@ -293,7 +437,7 @@ app.get('/api/game/:gameId/turn', async (req, res) => {
     res.status(500).json({ error: error.message });
   }
 });
-const NGROK_URL = "https://6a82-34-124-146-217.ngrok-free.app/post"; // Replace with your actual ngrok URL
+const NGROK_URL = "https://15e4-34-125-50-75.ngrok-free.app/post"; // Replace with your actual ngrok URL
 
 app.post("/generate-images", async (req, res) => {
   try {
@@ -347,14 +491,14 @@ app.post('/api/game/:gameId/choice', (req, res) => {
   try {
     const { choice } = req.body;
     const gameMaster = activeGames.get(req.params.gameId);
-    
+    console.log(choice);
     if (!gameMaster) {
       return res.status(404).json({ error: "Game not found" });
     }
 
-    if (choice < 0 || choice > 2) {
-      return res.status(400).json({ error: "Invalid choice" });
-    }
+    // if (choice < 0 || choice > 2) {
+    //   return res.status(400).json({ error: "Invalid choice" });
+    // }
 
     const { story, choices } = gameMaster.gameState.fullStoryHistory[gameMaster.gameState.fullStoryHistory.length - 1] || {};
     gameMaster.updateSummary(story, choices[choice]);
@@ -465,6 +609,33 @@ app.get('/api/check-audio/:phase', (req, res) => {
 
 // Make sure this middleware is present to serve audio files
 app.use('/audio', express.static(path.join(__dirname, 'generated_audio')));
+
+// Add this new endpoint for manual choices
+app.post('/api/game/:gameId/manual-choice', (req, res) => {
+  try {
+    const { choice } = req.body;
+    const gameMaster = activeGames.get(req.params.gameId);
+    
+    if (!gameMaster) {
+      return res.status(404).json({ error: "Game not found" });
+    }
+
+    if (!choice || typeof choice !== 'string') {
+      return res.status(400).json({ error: "Invalid choice" });
+    }
+
+    const { story } = gameMaster.gameState.fullStoryHistory[gameMaster.gameState.fullStoryHistory.length - 1] || {};
+    gameMaster.updateSummary(story, choice);
+
+    res.json({
+      success: true,
+      currentPhase: gameMaster.gameState.currentPhase,
+      message: "Manual choice recorded successfully"
+    });
+  } catch (error) {
+    res.status(500).json({ error: error.message });
+  }
+});
 
 const PORT = process.env.PORT || 4000;
 app.listen(PORT, () => {

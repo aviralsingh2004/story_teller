@@ -109,7 +109,7 @@ const GameStoryPage = () => {
       audioRef.current.pause();
       audioRef.current.currentTime = 0;
     }
-
+    
     setTextProgress(0);
     setShowImages(false);
     setShowOptions(false);
@@ -158,7 +158,12 @@ const GameStoryPage = () => {
       },
       body: JSON.stringify({ choice: manualChoice })
     })
-    .then(() => fetch(`http://localhost:4000/api/game/${gameId}/turn`))
+    .then(response => {
+      if (!response.ok) {
+        throw new Error('Network response was not ok');
+      }
+      return fetch(`http://localhost:4000/api/game/${gameId}/turn`);
+    })
     .then(response => response.json())
     .then(data => {
       setCurrentStory(data.story);
@@ -237,15 +242,10 @@ const GameStoryPage = () => {
         <div className="floating-orbs"></div>
         <div className="cosmic-dust"></div>
         <div className="meteors"></div>
-        <div className="comets-container">
-          {[...Array(8)].map((_, index) => (
-            <div key={index} className={`comet comet-${index + 1}`}></div>
-          ))}
-        </div>
       </div>
       
       <div className="content-wrapper">
-        <div className="panel text-section">
+        <div className="text-section">
           <div className="story-text-container">
             <div className="text-scroll-wrapper">
               <p className="story-text">
@@ -256,7 +256,7 @@ const GameStoryPage = () => {
           </div>
         </div>
 
-        <div className="panel images-section">
+        <div className="images-section">
           <div className={`story-images ${showImages ? 'visible' : ''}`}>
             <div className="image-container">
               <div className={`image-placeholder ${images.image1 ? '' : 'no-image'}`}>
@@ -316,21 +316,26 @@ const GameStoryPage = () => {
           ))}
           
           <div className="custom-choice-container">
-            <form onSubmit={handleManualChoice} className="manual-choice-form">
-              <div className="option-button custom-option">
-                <span className="button-glow"></span>
-                <span className="choice-number">4</span>
-                <input
-                  type="text"
-                  value={manualChoice}
-                  onChange={(e) => setManualChoice(e.target.value)}
-                  placeholder="Type your own action..."
-                  className="manual-input"
-                />
-              </div>
-              <button type="submit" className="submit-button">Go</button>
-            </form>
-          </div>
+  <form onSubmit={handleManualChoice} className="manual-choice-form">
+    <div className="custom-option">
+      <input
+        type="text"
+        value={manualChoice}
+        onChange={(e) => setManualChoice(e.target.value)}
+        placeholder="Type your own action..."
+        className="manual-input"
+        aria-label="Custom action input"
+      />
+    </div>
+    <button 
+      type="submit" 
+      className="submit-button"
+      disabled={!manualChoice.trim()}
+    >
+      Go
+    </button>
+  </form>
+</div>
         </div>
       </div>
       
