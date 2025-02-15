@@ -224,16 +224,29 @@
   border-radius: 4px;
 }
 
+.story-paragraph {
+  margin-bottom: 1.5rem;
+  line-height: 1.8;
+  opacity: 0;
+  animation: fadeIn 0.5s ease forwards;
+}
+
+.story-paragraph:last-child {
+  margin-bottom: 0;
+}
+
+@keyframes fadeIn {
+  from { opacity: 0; transform: translateY(10px); }
+  to { opacity: 1; transform: translateY(0); }
+}
+
 .story-text {
   font-size: 1.2rem;
-  line-height: 1.8;
   letter-spacing: 0.8px;
   text-shadow: 0 2px 4px rgba(0, 0, 0, 0.6);
   margin: 0;
-  animation: textFadeIn 0.5s ease-out;
   text-align: left;
 }
-
 
 .cursor {
   display: inline-block;

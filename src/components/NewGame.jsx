@@ -248,10 +248,14 @@ const GameStoryPage = () => {
         <div className="text-section">
           <div className="story-text-container">
             <div className="text-scroll-wrapper">
-              <p className="story-text">
-                {currentStory.substring(0, textProgress)}
+              <div className="story-text">
+                {currentStory.split('\n\n').map((paragraph, index) => (
+                  <p key={index} className="story-paragraph">
+                    {paragraph.slice(0, Math.max(0, textProgress - (index * paragraph.length)))}
+                  </p>
+                ))}
                 <span className="cursor"></span>
-              </p>
+              </div>
             </div>
           </div>
         </div>

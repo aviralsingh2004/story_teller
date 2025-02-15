@@ -83,7 +83,7 @@ const GamingLandingPage = () => {
             <Triangle size={40} strokeWidth={1} className="triangle-inner" />
           </div>
         </div>
-        <h1 className="game-title">CYBER NEXUS</h1>
+        <h1 className="game-title">The Wicked Crew</h1>
       </div>
       
       {/* Start Game Button */}

@@ -369,15 +369,15 @@ Active Characters: ${Array.from(this.getCharactersInPhase(event.story))}
     }
   }
 
-  async playTurn() {
-    // Get the story and choices first
-    const response = await this.generateResponse();
+async playTurn() {
+  // Get the story and choices first
+  const response = await this.generateResponse();
     
-    // Generate images
-    const images = await this.generateImagesForStory(response.story);
+  // Generate images
+  const images = await this.generateImagesForStory(response.story);
     
-    // Generate audio
-    const audioFile = await this.generateAudioForStory(
+  // Generate audio
+  const audioFile = await this.generateAudioForStory(
       response.story, 
       this.gameState.currentPhase
     );
@@ -437,7 +437,7 @@ app.get('/api/game/:gameId/turn', async (req, res) => {
     res.status(500).json({ error: error.message });
   }
 });
-const NGROK_URL = "https://15e4-34-125-50-75.ngrok-free.app/post"; // Replace with your actual ngrok URL
+const NGROK_URL = "https://59a4-34-125-245-40.ngrok-free.app/post"; // Replace with your actual ngrok URL
 
 app.post("/generate-images", async (req, res) => {
   try {
@@ -580,22 +580,38 @@ app.use('/extracted_images', express.static(path.join(__dirname, 'extracted_imag
 app.get('/api/check-audio/:phase', (req, res) => {
   const audioDir = path.join(__dirname, 'generated_audio');
   const phase = req.params.phase;
-  const audioFile = `story_1.mp3`;
-  const audioPath = path.join(audioDir, audioFile);
-
+  
   try {
-    if (fs.existsSync(audioPath)) {
-      console.log(`Audio file found: ${audioFile}`);
-      res.json({ 
-        success: true,
-        audioFile: audioFile,
-        audioPath: `/audio/${audioFile}`
-      });
+    if (fs.existsSync(audioDir)) {
+      // Get all mp3 files and sort them by modification time
+      const files = fs.readdirSync(audioDir)
+        .filter(file => file.endsWith('.mp3'))
+        .map(file => ({
+          name: file,
+          time: fs.statSync(path.join(audioDir, file)).mtime.getTime()
+        }))
+        .sort((a, b) => b.time - a.time); // Sort newest first
+
+      if (files.length > 0) {
+        const mostRecentAudio = files[0].name;
+        console.log(`Most recent audio file found: ${mostRecentAudio}`);
+        res.json({ 
+          success: true,
+          audioFile: mostRecentAudio,
+          audioPath: `/audio/${mostRecentAudio}`
+        });
+      } else {
+        console.log('No audio files found');
+        res.json({ 
+          success: false,
+          message: 'Audio file not yet generated'
+        });
+      }
     } else {
-      console.log(`Audio file not found: ${audioFile}`);
+      console.log('Audio directory not found');
       res.json({ 
         success: false,
-        message: 'Audio file not yet generated'
+        message: 'Audio directory not found'
       });
     }
   } catch (error) {
